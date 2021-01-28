@@ -1,18 +1,38 @@
 module Field where
 
 import Control.Monad
+import Control.Monad.State
+import Random
 
 type Coord = (Int, Int)
 
--- Piece type, N for None
-data PieceType = I | O | T | S | Z | J | L | N deriving (Eq, Show)
-data Direction = Spawn | DLeft | DRight | Twice deriving (Eq)
+gameH, gameW, pileH , pileW :: Int
+gameH = 22
+gameW = 10
+pileH = gameH + 2
+pileW = gameW + 4
+
+-- the origin of the game coord
+origin :: Coord
+origin = (0, 2)
+
+-- Piece type, N for None, B for Pile Border
+data PieceType = I | O | T | S | Z | J | L | N | B deriving (Eq, Show)
+data Direction = Spawn | DLeft | DRight | Twice deriving (Eq, Show)
 data RotateDir = RLeft | RRight deriving (Eq)
-data Piece = Piece { pType :: PieceType, pPos :: Coord, pDir :: Direction }
+data Piece = Piece { pType :: PieceType, pPos :: Coord, pDir :: Direction } deriving (Eq, Show)
 type Pile = [[PieceType]]
 
-diff :: Coord -> Coord -> Coord
-diff (a, b) (c, d) = (a - c, b - d)
+data FieldST = FieldST { curPiece :: Piece, field :: Pile }
+type FieldM = StateT FieldST IO
+
+(?+), (?-) :: Coord -> Coord -> Coord
+(a, b) ?+ (c, d) = (a + c, b + d)
+(a, b) ?- (c, d) = (a - c, b - d)
+
+-- all piece types can be generated
+pieceTypes :: [PieceType]
+pieceTypes = [I, O, T, S, Z, J, L]
 
 -- get the bounding Box of the piece
 boundBox :: PieceType -> Direction -> Pile
@@ -56,66 +76,101 @@ boundBox N _ = [[]]
 
 -- get the srs offset of each kind of rotation
 getOffset :: PieceType -> Direction -> [Coord]
-getOffset I d = case d of
+getOffset I d =
+  case d of
     Spawn -> [(0, 0), (-1, 0), (2, 0), (-1, 0), (2, 0)]
     DRight -> [(-1, 0), (0, 0), (0, 0), (0, 1), (0, -2)]
     Twice -> [(-1, 1), (1, 1), (-2, 1), (1, 0), (-2, 0)]
-    DLeft -> [(0, 1), (0, 1), (0, 1), (0,-1), (0, 2)]
-getOffset O d = case d of
+    DLeft -> [(0, 1), (0, 1), (0, 1), (0, -1), (0, 2)]
+getOffset O d =
+  case d of
     Spawn -> [(0, 0)]
     DRight -> [(0, -1)]
     Twice -> [(-1, -1)]
     DLeft -> [(-1, 0)]
-getOffset _ d = case d of
+getOffset _ d =
+  case d of
     Spawn -> replicate 5 (0, 0)
     DRight -> [(0, 0), (1, 0), (1, -1), (0, 2), (1, 2)]
     Twice -> replicate 5 (0, 0)
-    DLeft -> [(0, 0), (-1, 0), (-1,-1), (0, 2), (-1, 2)]
+    DLeft -> [(0, 0), (-1, 0), (-1, -1), (0, 2), (-1, 2)]
 
 -- get the final rotate offset
 srsOffset :: PieceType -> (Direction, Direction) -> [Coord]
-srsOffset t (dFrom, dTo) = 
-    let from = getOffset t dFrom; to = getOffset t dTo in
-        zipWith diff from to
+srsOffset t (dFrom, dTo) =
+  let from = getOffset t dFrom; to = getOffset t dTo
+   in zipWith (?-) from to
 
 emptyField :: Pile
-emptyField = replicate 22 $ replicate 10 N 
-
+emptyField =
+  replicate gameH (wall ++ replicate gameW N ++ wall)
+    ++ replicate 2 (replicate pileW B)
+  where
+    wall = [B, B]
 
 -- place a piece
-place :: Piece -> Pile -> Pile
-place (Piece t (x, y) d) p = 
-    let box = boundBox t d; l = length box in
-        [[ let p1 = p!!i!!j; p2 = box!!(i-x)!!(j-y) in
-            if i >= x && i < x+l && j >= y && j < y+l then
-                if p1 == N then p2 else p1
-            else p1
-            | j <- [0..9]] | i <- [0..21]]
+place :: FieldM Pile
+place = StateT $ \(FieldST (Piece t (x, y) d) p) ->
+  let box = boundBox t d
+      l = length box
+      p' =
+        [ [ let p1 = p !! i !! j; p2 = box !! (i - x) !! (j - y)
+             in if i >= x && i < x + l && j >= y && j < y + l
+                  && p1 == N
+                  then p2
+                  else p1
+            | j <- [0 .. pileW -1]
+          ]
+          | i <- [0 .. pileH -1]
+        ]
+   in liftIO $ randVal pieceTypes
+        >>= \randType -> return (p', FieldST (Piece randType (origin ?+ (0, 0)) Spawn) p')
 
 -- checking if a piece is blocked after a move
 isBlocked :: Piece -> Pile -> Bool
-isBlocked (Piece t (x, y) d) p = or . join $
-    let box = boundBox t d; l = length box in
-        [[ let p1 = p!!(i+x)!!(j+y); p2 = box!!i!!j in
-            p1 /= N && p2 /= N
-            | j <- [0..l-1]] | i <- [0..l-1]]
+isBlocked (Piece t (x, y) d) p =
+  or . join $
+    let box = boundBox t d; l = length box
+     in [ [ let p1 = p !! (i + x) !! (j + y); p2 = box !! i !! j
+             in p1 /= N && p2 /= N
+            | j <- [0 .. l -1]
+          ]
+          | i <- [0 .. l -1]
+        ]
 
 -- move a piece with a direction vector
 -- if failed, it returns the original piece
-movePiece :: Piece -> Coord -> Pile -> Piece
-movePiece op@(Piece t (x, y) d) (dx, dy) p = 
-    let p' = Piece t (x+dx, y+dy) d in
-        if not $ isBlocked p' p then p' else op 
+movePiece :: Coord -> FieldM ()
+movePiece (dx, dy) = state $
+  \(FieldST op@(Piece t (x, y) d) pile) ->
+    let p' = Piece t (x + dx, y + dy) d
+        pRes = if not $ isBlocked p' pile then p' else op
+     in ((), FieldST pRes pile)
 
 -- rotate a piece with a given direction
 -- if failed, it returns the original piece
 -- rotatePiece :: Piece -> RotateDir -> Piece
+-- rotatePiece op@(Piece t (x, y) d) di = op
 
 --showField 
 
-printList :: Show a => [a] -> IO ()
+printList :: Show a => [[a]] -> IO ()
 printList [] = return ()
-printList (x:xs) = do
-    print x 
-    printList xs
+printList (x : xs) = do
+  mapM_ (putStr.(++" ").show) x
+  putStr "\n"
+  printList xs
 
+
+-- tests
+test1 = FieldST (Piece O (origin ?+ (0, 0)) Spawn) emptyField
+
+test2 :: FieldM ()
+test2 = do
+  return ()
+  -- movePiece (1,1)
+
+printST :: FieldM () -> IO ()
+printST s = do 
+  (_, FieldST p pile) <- runStateT (s >> place) test1
+  printList pile
