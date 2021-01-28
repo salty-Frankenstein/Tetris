@@ -1,14 +1,18 @@
 import Control.Monad
-import System.Win32.Process
+-- import System.Win32.Process
 import Control.Concurrent
 
-import Keyboard
-import Time
+import Data.IORef
+import Data.Foldable
 
-foreverPrint :: Char -> IO ()
-foreverPrint c = forever $ do
-    print c
-    sleep 1000
+-- import Keyboard
+-- import Time
+
+-- foreverPrint :: Char -> IO ()
+-- foreverPrint c = forever $ do
+--     print c
+--     sleep 1000
+
 {-
 main :: IO ()
 main = do
@@ -20,16 +24,25 @@ main = do
 -}
 
 main :: IO ()
-main = do
-    m <- newMVar '0'
-    forkIO $ forever $ do
-        c <- getChar
-        putMVar m c
-    forkIO $ forever $ do
-        c <- takeMVar m
-        print c
-        sleep 2
+main = do 
+    aRef <- newIORef 0
     
-    return ()
+    forever $ do
+        a <- readIORef aRef
+        when (a `mod` 100000 == 0 ) $ print a
+        modifyIORef aRef (+1)
+
+-- main :: IO ()
+-- main = do
+--     m <- newMVar '0'
+--     forkIO $ forever $ do
+--         c <- getChar
+--         putMVar m c
+--     forkIO $ forever $ do
+--         c <- takeMVar m
+--         print c
+--         sleep 2
+    
+--     return ()
     --forever $ return ()
 

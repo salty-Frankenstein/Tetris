@@ -1,0 +1,4 @@
+.stack-work/
+stack.*
+.ghci
+hie.yaml
