@@ -2,6 +2,7 @@ module Field where
 
 import Control.Monad
 import Control.Monad.State
+import Control.Applicative
 import Random
 
 type Coord = (Int, Int)
@@ -17,14 +18,19 @@ origin :: Coord
 origin = (0, 2)
 
 -- Piece type, N for None, B for Pile Border
-data PieceType = I | O | T | S | Z | J | L | N | B deriving (Eq, Show)
-data Direction = Spawn | DLeft | DRight | Twice deriving (Eq, Show)
+data PieceType = I | O | T | S | Z | J | L | N | B deriving (Eq)
+data Direction = Spawn | DRight | Twice | DLeft deriving (Eq, Show, Enum)
 data RotateDir = RLeft | RRight deriving (Eq)
 data Piece = Piece { pType :: PieceType, pPos :: Coord, pDir :: Direction } deriving (Eq, Show)
 type Pile = [[PieceType]]
 
 data FieldST = FieldST { curPiece :: Piece, field :: Pile }
 type FieldM = StateT FieldST IO
+
+instance Show PieceType where
+  show N = "  "
+  show B = "##"
+  show _ = "**"
 
 (?+), (?-) :: Coord -> Coord -> Coord
 (a, b) ?+ (c, d) = (a + c, b + d)
@@ -152,19 +158,42 @@ isBlocked (Piece t (x, y) d) p =
           | i <- [0 .. l -1]
         ]
 
+-- to check if a piece is blocked
+checkBlocked :: Piece -> Pile -> Maybe Piece
+checkBlocked p pile = if not $ isBlocked p pile then Just p else Nothing 
+
 -- move a piece with a direction vector
 -- if failed, it returns the original piece
-movePiece :: Coord -> FieldM ()
+movePiece :: Coord -> FieldM Bool
 movePiece (dx, dy) = state $
   \(FieldST op@(Piece t (x, y) d) pile) ->
     let p' = Piece t (x + dx, y + dy) d
-        pRes = if not $ isBlocked p' pile then p' else op
-     in ((), FieldST pRes pile)
+    in case checkBlocked p' pile of
+      Nothing -> (False, FieldST op pile)
+      _ -> (True, FieldST p' pile)
+
+-- it ignores the result
+movePiece_ :: Coord -> FieldM ()
+movePiece_ x = void $ movePiece x 
+
+rotate :: RotateDir -> Direction -> Direction
+rotate RRight DLeft = Spawn
+rotate RRight x = succ x
+rotate RLeft Spawn = DLeft
+rotate RLeft x = pred x
 
 -- rotate a piece with a given direction
 -- if failed, it returns the original piece
 rotatePiece :: RotateDir -> FieldM ()
-rotatePiece _ = return ()
+rotatePiece rdir = state $ 
+  \f@(FieldST op@(Piece t c d) pile) ->
+    let d' = rotate rdir d;
+        offsetList = srsOffset t (d, d');
+        alternatives = map (\offset -> checkBlocked (Piece t (c ?+ offset) d') pile) offsetList;
+        res = foldr1 (<|>) alternatives
+        in case res of 
+          Nothing -> ((), FieldST op pile)
+          Just p' -> ((), FieldST p' pile)
 
 --showField 
 getPile :: FieldM Pile
