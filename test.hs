@@ -1,9 +1,12 @@
 import Control.Monad
 -- import System.Win32.Process
+import System.Posix.Unistd
 import Control.Concurrent
 
 import Data.IORef
 import Data.Foldable
+import qualified UI.HSCurses.Curses as Curses
+import qualified UI.HSCurses.CursesHelper as CursesH
 
 -- import Keyboard
 -- import Time
@@ -25,13 +28,31 @@ main = do
 
 main :: IO ()
 main = do 
+    CursesH.start
     aRef <- newIORef 0
-    
-    forever $ do
+    bRef <- newIORef "a"
+    forkIO $ forever $ do
         a <- readIORef aRef
-        when (a `mod` 100000 == 0 ) $ print a
-        modifyIORef aRef (+1)
+        b <- readIORef bRef
+        when (a `mod` 100000 == 0 ) $ do
+            Curses.mvWAddStr Curses.stdScr 0 0 (show a)
+            Curses.mvWAddStr Curses.stdScr 1 0 (show b)
+            Curses.refresh
 
+        modifyIORef aRef (+1)
+    
+    forkIO $ forever $ do
+        c <- Curses.getCh 
+        writeIORef bRef (show c)
+
+    -- forkIO $ forever $ do
+    --     b <- readIORef bRef
+    --     when (b `mod` 100000 == 5 ) $ print b
+    --     modifyIORef bRef (+1)
+    
+    threadDelay 10000000
+    -- sleep 1
+    return ()
 -- main :: IO ()
 -- main = do
 --     m <- newMVar '0'

@@ -109,6 +109,20 @@ emptyField =
     wall = [B, B]
 
 -- place a piece
+justPlace :: Piece -> Pile -> Pile
+justPlace (Piece t (x, y) d) p =
+  let box = boundBox t d
+      l = length box
+   in [ [ let p1 = p !! i !! j; p2 = box !! (i - x) !! (j - y)
+           in if i >= x && i < x + l && j >= y && j < y + l
+                && p1 == N
+                then p2
+                else p1
+          | j <- [0 .. pileW -1]
+        ]
+        | i <- [0 .. pileH -1]
+      ]
+
 place :: FieldM Pile
 place = StateT $ \(FieldST (Piece t (x, y) d) p) ->
   let box = boundBox t d
@@ -153,6 +167,9 @@ movePiece (dx, dy) = state $
 -- rotatePiece op@(Piece t (x, y) d) di = op
 
 --showField 
+getPile :: FieldM Pile
+getPile = state $ \f@(FieldST p pile) -> 
+  (justPlace p pile, f)
 
 printList :: Show a => [[a]] -> IO ()
 printList [] = return ()
