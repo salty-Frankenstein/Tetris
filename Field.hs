@@ -123,7 +123,7 @@ justPlace (Piece t (x, y) d) p =
         | i <- [0 .. pileH -1]
       ]
 
-place :: FieldM Pile
+place :: FieldM ()
 place = StateT $ \(FieldST (Piece t (x, y) d) p) ->
   let box = boundBox t d
       l = length box
@@ -138,7 +138,7 @@ place = StateT $ \(FieldST (Piece t (x, y) d) p) ->
           | i <- [0 .. pileH -1]
         ]
    in liftIO $ randVal pieceTypes
-        >>= \randType -> return (p', FieldST (Piece randType (origin ?+ (0, 0)) Spawn) p')
+        >>= \randType -> return ((), FieldST (Piece randType (origin ?+ (0, 0)) Spawn) p')
 
 -- checking if a piece is blocked after a move
 isBlocked :: Piece -> Pile -> Bool
@@ -163,8 +163,8 @@ movePiece (dx, dy) = state $
 
 -- rotate a piece with a given direction
 -- if failed, it returns the original piece
--- rotatePiece :: Piece -> RotateDir -> Piece
--- rotatePiece op@(Piece t (x, y) d) di = op
+rotatePiece :: RotateDir -> FieldM ()
+rotatePiece _ = return ()
 
 --showField 
 getPile :: FieldM Pile
