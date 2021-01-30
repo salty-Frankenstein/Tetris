@@ -185,13 +185,14 @@ rotate RLeft x = pred x
 -- rotate a piece with a given direction
 -- if failed, it returns the original piece
 rotatePiece :: RotateDir -> FieldM ()
-rotatePiece rdir = state $ 
+rotatePiece rdir = state $
   \f@(FieldST op@(Piece t c d) pile) ->
-    let d' = rotate rdir d;
-        offsetList = srsOffset t (d, d');
-        alternatives = map (\offset -> checkBlocked (Piece t (c ?+ offset) d') pile) offsetList;
+    let d' = rotate rdir d
+        offsetList = srsOffset t (d, d')
+        applyOffset (y, x) = checkBlocked (Piece t (c ?+ (- x, y)) d') pile
+        alternatives = map applyOffset offsetList
         res = foldr1 (<|>) alternatives
-        in case res of 
+     in case res of
           Nothing -> ((), FieldST op pile)
           Just p' -> ((), FieldST p' pile)
 
@@ -209,7 +210,7 @@ printList (x : xs) = do
 
 
 -- tests
-test1 = FieldST (Piece O (origin ?+ (0, 0)) Spawn) emptyField
+test1 = FieldST (Piece I (origin ?+ (5, 0)) Spawn) emptyField
 
 test2 :: FieldM ()
 test2 = do
