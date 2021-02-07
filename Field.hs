@@ -18,7 +18,7 @@ origin :: Coord
 origin = (0, 2)
 
 -- Piece type, N for None, B for Pile Border
-data PieceType = I | O | T | S | Z | J | L | N | B deriving (Eq)
+data PieceType = I | O | T | S | Z | J | L | N | B deriving (Eq, Enum)
 data Direction = Spawn | DRight | Twice | DLeft deriving (Eq, Show, Enum)
 data RotateDir = RLeft | RRight deriving (Eq)
 data Piece = Piece { pType :: PieceType, pPos :: Coord, pDir :: Direction } deriving (Eq, Show)
@@ -77,7 +77,7 @@ boundBox L DRight = [[N,L,N],[N,L,N],[N,L,L]]
 boundBox L Twice = [[N,N,N],[L,L,L],[L,N,N]]
 boundBox L DLeft = [[L,L,N],[N,L,N],[N,L,N]]
 
-boundBox N _ = [[]]
+boundBox N _ = error "invalid piece"
 -- end of boundBox
 
 -- get the srs offset of each kind of rotation

@@ -10,6 +10,19 @@ import qualified UI.HSCurses.CursesHelper as CursesH
 
 import Field
 
+colorInit :: IO ()
+colorInit = do
+  Curses.startColor
+  Curses.initPair (Curses.Pair 1) CursesH.cyan CursesH.cyan
+  Curses.initPair (Curses.Pair 2) CursesH.blue CursesH.blue
+  Curses.initPair (Curses.Pair 3) CursesH.white CursesH.white
+  Curses.initPair (Curses.Pair 4) CursesH.yellow CursesH.yellow
+  Curses.initPair (Curses.Pair 5) CursesH.green CursesH.green
+  Curses.initPair (Curses.Pair 6) CursesH.magenta CursesH.magenta
+  Curses.initPair (Curses.Pair 7) CursesH.red CursesH.red
+  Curses.initPair (Curses.Pair 8) CursesH.red Curses.defaultBackground
+  Curses.initPair (Curses.Pair 9) CursesH.black CursesH.black
+
 -- draw s = do
 --   (h, w) <- Curses.scrSize
 --   CursesH.gotoTop
@@ -23,9 +36,18 @@ drawField p = do
   where
     drawField' [] _ = return ()
     drawField' (x : xs) i = do
-      let str = concatMap show x
-      Curses.mvWAddStr Curses.stdScr i 0 str
+      showLine x i
       drawField' xs (i + 1)
+    
+    drawPiece :: PieceType -> Coord -> IO ()
+    drawPiece p (x, y) = do
+      let color p = fromEnum p + 1
+      Curses.attrSet Curses.attr0 (Curses.Pair $ color p)
+      Curses.mvWAddStr Curses.stdScr x y (show p)
+
+    showLine :: [PieceType] -> Int -> IO ()
+    showLine l i = do
+      sequence_ $ zipWith drawPiece l (repeat i `zip` [0,2..])
 
 clearKey :: IORef Curses.Key -> IO ()
 clearKey keyRef = writeIORef keyRef $ Curses.KeyChar ' ' 
@@ -43,6 +65,7 @@ mainLoop gameSTRef timeRef keyRef = forever $ do
   gameST <- liftIO $ readIORef gameSTRef
   liftIO $ modifyIORef timeRef (+1)
   time <- liftIO $ readIORef timeRef
+  liftIO $ Curses.attrSet Curses.attr0 (Curses.Pair 8)
   liftIO $ Curses.mvWAddStr Curses.stdScr 0 0 (show time)
 
   case gameST of
@@ -61,7 +84,7 @@ mainLoop gameSTRef timeRef keyRef = forever $ do
       liftIO (clearKey keyRef)
       
       {- falling -}
-      when (time `mod` 100000 == 0) $ do
+      when (time `mod` 20000 == 0) $ do
         res <- movePiece (1, 0)
         unless res place
 
@@ -78,6 +101,7 @@ keyEvent keyRef = do
 main :: IO ()
 main = do
   CursesH.start
+  colorInit
 
   {- global variables -}
   timeRef <- newIORef 0
