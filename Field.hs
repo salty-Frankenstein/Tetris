@@ -11,11 +11,11 @@ gameH, gameW, pileH , pileW :: Int
 gameH = 22
 gameW = 10
 pileH = gameH + 2
-pileW = gameW + 4
+pileW = gameW + 8
 
 -- the origin of the game coord
 origin :: Coord
-origin = (0, 2)
+origin = (0, 4)
 
 -- Piece type, N for None, B for Pile Border
 data PieceType = I | O | T | S | Z | J | L | N | B deriving (Eq, Enum)
@@ -112,7 +112,7 @@ emptyField =
   replicate gameH (wall ++ replicate gameW N ++ wall)
     ++ replicate 2 (replicate pileW B)
   where
-    wall = [B, B]
+    wall = [B, B, B, B]
 
 -- place a piece
 justPlace :: Piece -> Pile -> Pile
@@ -144,7 +144,7 @@ place = StateT $ \(FieldST (Piece t (x, y) d) p) ->
           | i <- [0 .. pileH -1]
         ]
    in liftIO $ randVal pieceTypes
-        >>= \randType -> return ((), FieldST (Piece randType (origin ?+ (0, 0)) Spawn) p')
+        >>= \randType -> return ((), FieldST (Piece randType (origin ?+ (0, 2)) Spawn) p')
 
 -- checking if a piece is blocked after a move
 isBlocked :: Piece -> Pile -> Bool
@@ -207,12 +207,17 @@ removeFull' p =
       fullNum = pileH - length p'
     in replicate fullNum newLine ++ p'
   where 
-    wall = [B, B]
+    wall = [B, B, B, B]
     newLine = wall ++ replicate gameW N ++ wall
 
 removeFull :: FieldM ()
 removeFull = state $
-  \(FieldST op pile) -> ((), FieldST op (removeFull' pile))
+  \(FieldST p pile) -> ((), FieldST p (removeFull' pile))
+
+fallPiece :: FieldM ()
+fallPiece = do
+  res <- movePiece (1, 0)
+  if res then fallPiece else return ()
 
 --showField 
 getPile :: FieldM Pile
@@ -228,7 +233,7 @@ printList (x : xs) = do
 
 
 -- tests
-test1 = FieldST (Piece I (origin ?+ (5, 0)) Spawn) emptyField
+test1 = FieldST (Piece I (origin ?+ (0, 2)) Spawn) emptyField
 
 test2 :: FieldM ()
 test2 = do

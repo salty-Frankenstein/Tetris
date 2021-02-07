@@ -14,12 +14,12 @@ colorInit :: IO ()
 colorInit = do
   Curses.startColor
   Curses.initPair (Curses.Pair 1) CursesH.cyan CursesH.cyan
-  Curses.initPair (Curses.Pair 2) CursesH.blue CursesH.blue
-  Curses.initPair (Curses.Pair 3) CursesH.white CursesH.white
-  Curses.initPair (Curses.Pair 4) CursesH.yellow CursesH.yellow
-  Curses.initPair (Curses.Pair 5) CursesH.green CursesH.green
-  Curses.initPair (Curses.Pair 6) CursesH.magenta CursesH.magenta
-  Curses.initPair (Curses.Pair 7) CursesH.red CursesH.red
+  Curses.initPair (Curses.Pair 6) CursesH.blue CursesH.blue
+  Curses.initPair (Curses.Pair 2) CursesH.white CursesH.white
+  Curses.initPair (Curses.Pair 7) CursesH.yellow CursesH.yellow
+  Curses.initPair (Curses.Pair 4) CursesH.green CursesH.green
+  Curses.initPair (Curses.Pair 3) CursesH.magenta CursesH.magenta
+  Curses.initPair (Curses.Pair 5) CursesH.red CursesH.red
   Curses.initPair (Curses.Pair 8) CursesH.red Curses.defaultBackground
   Curses.initPair (Curses.Pair 9) CursesH.black CursesH.black
 
@@ -34,7 +34,7 @@ drawField p = do
   drawField' p 1
   Curses.refresh
   where
-    drawField' [] _ = return ()
+    drawField' (_:[]) _ = return ()
     drawField' (x : xs) i = do
       showLine x i
       drawField' xs (i + 1)
@@ -47,7 +47,7 @@ drawField p = do
 
     showLine :: [PieceType] -> Int -> IO ()
     showLine l i = do
-      sequence_ $ zipWith drawPiece l (repeat i `zip` [0,2..])
+      sequence_ $ zipWith drawPiece (drop 3.init.init.init $ l) (repeat i `zip` [0,2..])
 
 clearKey :: IORef Curses.Key -> IO ()
 clearKey keyRef = writeIORef keyRef $ Curses.KeyChar ' ' 
@@ -65,8 +65,8 @@ mainLoop gameSTRef timeRef keyRef = forever $ do
   gameST <- liftIO $ readIORef gameSTRef
   liftIO $ modifyIORef timeRef (+1)
   time <- liftIO $ readIORef timeRef
-  liftIO $ Curses.attrSet Curses.attr0 (Curses.Pair 8)
-  liftIO $ Curses.mvWAddStr Curses.stdScr 0 0 (show time)
+  -- liftIO $ Curses.attrSet Curses.attr0 (Curses.Pair 8)
+  -- liftIO $ Curses.mvWAddStr Curses.stdScr 0 0 (show time)
 
   case gameST of
     GameExit -> liftIO exitSuccess
@@ -77,6 +77,8 @@ mainLoop gameSTRef timeRef keyRef = forever $ do
           liftIO $ writeIORef gameSTRef GameExit
         Curses.KeyLeft -> movePiece_ (0, -1)
         Curses.KeyRight -> movePiece_ (0, 1)
+        Curses.KeyDown -> movePiece_ (1, 0)
+        Curses.KeyUp -> fallPiece
         Curses.KeyChar 'z' -> rotatePiece RLeft
         Curses.KeyChar 'x' -> rotatePiece RRight
         _ -> return ()
@@ -84,7 +86,7 @@ mainLoop gameSTRef timeRef keyRef = forever $ do
       liftIO (clearKey keyRef)
       
       {- falling -}
-      when (time `mod` 40000 == 0) $ do
+      when (time `mod` 200000 == 0) $ do
         res <- movePiece (1, 0)
         unless res (place >> removeFull)
 
