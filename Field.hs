@@ -186,7 +186,7 @@ rotate RLeft x = pred x
 -- if failed, it returns the original piece
 rotatePiece :: RotateDir -> FieldM ()
 rotatePiece rdir = state $
-  \f@(FieldST op@(Piece t c d) pile) ->
+  \(FieldST op@(Piece t c d) pile) ->
     let d' = rotate rdir d
         offsetList = srsOffset t (d, d')
         applyOffset (y, x) = checkBlocked (Piece t (c ?+ (- x, y)) d') pile
@@ -195,6 +195,24 @@ rotatePiece rdir = state $
      in case res of
           Nothing -> ((), FieldST op pile)
           Just p' -> ((), FieldST p' pile)
+
+-- check if a line is full
+isFull :: [PieceType] -> Bool
+isFull = and . map (/= N)
+
+-- remove all full lines
+removeFull' :: Pile -> Pile
+removeFull' p = 
+  let p' = filter (\l -> not (isFull l) || l !! 10 == B) p
+      fullNum = pileH - length p'
+    in replicate fullNum newLine ++ p'
+  where 
+    wall = [B, B]
+    newLine = wall ++ replicate gameW N ++ wall
+
+removeFull :: FieldM ()
+removeFull = state $
+  \(FieldST op pile) -> ((), FieldST op (removeFull' pile))
 
 --showField 
 getPile :: FieldM Pile

@@ -84,9 +84,9 @@ mainLoop gameSTRef timeRef keyRef = forever $ do
       liftIO (clearKey keyRef)
       
       {- falling -}
-      when (time `mod` 20000 == 0) $ do
+      when (time `mod` 40000 == 0) $ do
         res <- movePiece (1, 0)
-        unless res place
+        unless res (place >> removeFull)
 
       getPile >>= \p -> liftIO $ drawField p
       liftIO Curses.refresh
