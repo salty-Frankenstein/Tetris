@@ -223,24 +223,3 @@ fallPiece = do
 getPile :: FieldM Pile
 getPile = state $ \f@(FieldST p pile) -> 
   (justPlace p pile, f)
-
-printList :: Show a => [[a]] -> IO ()
-printList [] = return ()
-printList (x : xs) = do
-  mapM_ (putStr.(++" ").show) x
-  putStr "\n"
-  printList xs
-
-
--- tests
-test1 = FieldST (Piece I (origin ?+ (0, 2)) Spawn) emptyField
-
-test2 :: FieldM ()
-test2 = do
-  return ()
-  -- movePiece (1,1)
-
-printST :: FieldM () -> IO ()
-printST s = do 
-  (_, FieldST p pile) <- runStateT (s >> place) test1
-  printList pile

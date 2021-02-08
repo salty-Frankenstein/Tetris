@@ -9,6 +9,7 @@ import qualified UI.HSCurses.Curses as Curses
 import qualified UI.HSCurses.CursesHelper as CursesH
 
 import Field
+import Random
 
 colorInit :: IO ()
 colorInit = do
@@ -22,12 +23,6 @@ colorInit = do
   Curses.initPair (Curses.Pair 5) CursesH.red CursesH.red
   Curses.initPair (Curses.Pair 8) CursesH.red Curses.defaultBackground
   Curses.initPair (Curses.Pair 9) CursesH.black CursesH.black
-
--- draw s = do
---   (h, w) <- Curses.scrSize
---   CursesH.gotoTop
---   CursesH.drawLine w s
---   Curses.refresh
 
 drawField :: Pile -> IO ()
 drawField p = do
@@ -55,8 +50,10 @@ clearKey keyRef = writeIORef keyRef $ Curses.KeyChar ' '
 data GameST = GameStart | GameRun | GameOver | GameExit
 type Time = Integer 
 
-initGame :: FieldST
-initGame = test1
+initGame :: IO FieldST
+initGame =
+  randVal pieceTypes 
+    >>= \randType -> return $ FieldST (Piece randType (origin ?+ (0, 2)) Spawn) emptyField
 
 {- game main loop, with global variables -}
 {- it should react every timetick -}
@@ -112,7 +109,9 @@ main = do
 
   {- game main loop -}
   forkIO . forever $ keyEvent keyRef
-  forkIO $ evalStateT (mainLoop gameSTRef timeRef keyRef) initGame
+
+  init <- initGame
+  forkIO $ evalStateT (mainLoop gameSTRef timeRef keyRef) init
 
   {- main: wait for GameExit -}
   forever $ do
